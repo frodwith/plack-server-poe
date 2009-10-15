@@ -32,6 +32,7 @@ sub run {
         ClientInput        => sub {
             my ($kernel, $heap, $req) = @_[KERNEL, HEAP, ARG0];
             my $client = $heap->{client};
+
             my $env = req_to_psgi($req,
                 SERVER_NAME         => $self->{host},
                 SERVER_PORT         => $self->{port},
@@ -39,22 +40,49 @@ sub run {
                 'psgi.runonce'      => Plack::Util::FALSE,
             );
 
-            my ($code, $headers, $body_iter) =
-                @{ Plack::Util::run_app($app, $env) };
+            my $write = sub { $client->put($_[0]) };
+            my $close = sub { $poe_kernel->yield('shutdown') };
+            my $write_body = sub { Plack::Util::foreach($_[0], $write) };
 
-            my $protocol = $req->protocol || 'HTTP/0.9';
-            my $message = status_message($code);
-            $client->put("$protocol $code $message\r\n");
+            my $start_response = sub {
+                my ($code, $headers) = @_;
+                my $protocol = $req->protocol || 'HTTP/0.9';
+                my $message = status_message($code);
+                $write->("$protocol $code $message\r\n");
 
-            while (@$headers) {
-                my $k = shift(@$headers);
-                my $v = shift(@$headers);
-                $client->put("$k: $v\r\n");
+                while (@$headers) {
+                    my $k = shift(@$headers);
+                    my $v = shift(@$headers);
+                    $write->("$k: $v\r\n");
+                }
+
+                $write->("\r\n");
+            };
+
+            my $response = Plack::Util::run_app($app, $env);
+
+            if (ref $response eq 'CODE') {
+                $response->(sub {
+                    my ($status, $headers, $body) = @_;
+                    $start_response->($status, $headers);
+                    if ($body) {
+                        $write_body->($body);
+                        $close->();
+                    }
+                    else {
+                        return Plack::Util::inline_object(
+                            write => $write,
+                            close => $close,
+                        );
+                    }
+                });
             }
-            $client->put("\r\n");
-            Plack::Util::foreach($body_iter, sub { $client->put($_[0]) });
-
-            $poe_kernel->yield('shutdown');
+            else {
+                my ($status, $headers, $body) = @$response;
+                $start_response->($status, $headers);
+                $write_body->($body);
+                $close->();
+            }
         },
     );
     POE::Kernel->run;
