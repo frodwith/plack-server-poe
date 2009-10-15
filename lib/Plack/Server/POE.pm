@@ -36,27 +36,48 @@ sub register_service {
             my ($kernel, $heap, $req) = @_[KERNEL, HEAP, ARG0];
             my $client = $heap->{client};
 
+            my $protocol = $req->protocol || 'HTTP/0.9';
+
             my $env = req_to_psgi($req,
                 SERVER_NAME         => $self->{host},
                 SERVER_PORT         => $self->{port},
+                'psgi.streaming'    => Plack::Util::TRUE,
                 'psgi.nonblocking'  => Plack::Util::TRUE,
                 'psgi.runonce'      => Plack::Util::FALSE,
             );
 
+            my $connection = $req->header('Connection');
+            my $v09 = $protocol eq 'HTTP/0.9';
+            my $v10 = $protocol eq 'HTTP/1.0';
+            my $v11 = $protocol eq 'HTTP/1.1';
+
+            my $keep_alive = !$v09 && (
+                ($v10 && $connection eq 'Keep-Alive') 
+                || ($v11 && $connection ne 'close')
+            );
+
             my $write = sub { $client->put($_[0]) };
-            my $close = sub { $poe_kernel->yield('shutdown') };
+            my $close = sub { 
+                $poe_kernel->yield('shutdown') unless $keep_alive;
+            };
             my $write_body = sub { Plack::Util::foreach($_[0], $write) };
 
             my $start_response = sub {
                 my ($code, $headers) = @_;
-                my $protocol = $req->protocol || 'HTTP/0.9';
                 my $message = status_message($code);
                 $write->("$protocol $code $message\r\n");
 
                 while (@$headers) {
                     my $k = shift(@$headers);
                     my $v = shift(@$headers);
+                    if ($k eq 'Connection' && $v eq 'close') {
+                        $keep_alive = 0;
+                    }
                     $write->("$k: $v\r\n");
+                }
+
+                if ($keep_alive && $v10) {
+                    $write->("Connection: Keep-Alive\n");
                 }
 
                 $write->("\r\n");
