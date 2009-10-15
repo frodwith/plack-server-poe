@@ -1,0 +1,21 @@
+NAME
+    Plack::Server::POE - Plack Server implementation for POE
+
+SYNOPSIS
+        use Plack::Server::POE;
+
+        my $server = Plack::Server::POE->new(
+            host => $host,
+            port => $port,
+        );
+        $server->run($app);
+
+AUTHOR
+    Paul Driver, "<frodwith at cpan.org>"
+
+LICENSE
+    This module is licensed under the same terms as Perl itself.
+
+SEE ALSO
+    Plack
+

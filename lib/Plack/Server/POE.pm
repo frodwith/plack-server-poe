@@ -1,5 +1,7 @@
 package Plack::Server::POE;
 
+require v5.8.8;
+
 use warnings;
 use strict;
 
@@ -95,3 +97,33 @@ sub run {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Plack::Server::POE - Plack Server implementation for POE
+
+=head1 SYNOPSIS
+
+    use Plack::Server::POE;
+
+    my $server = Plack::Server::POE->new(
+        host => $host,
+        port => $port,
+    );
+    $server->run($app);
+
+=head1 AUTHOR
+
+Paul Driver, C<< <frodwith at cpan.org> >>
+
+=head1 LICENSE
+
+This module is licensed under the same terms as Perl itself.
+
+=head1 SEE ALSO
+
+L<Plack>
+
+=cut
