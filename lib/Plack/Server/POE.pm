@@ -63,7 +63,7 @@ sub run {
 
             if (ref $response eq 'CODE') {
                 $response->(sub {
-                    my ($status, $headers, $body) = @_;
+                    my ($status, $headers, $body) = @{+shift};
                     $start_response->($status, $headers);
                     if ($body) {
                         $write_body->($body);
