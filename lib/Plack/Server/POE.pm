@@ -21,8 +21,9 @@ sub new {
     return bless $opt, $class;
 }
 
-sub run {
+sub register_service {
     my ($self, $app) = @_;
+
     my $filter = POE::Filter::HTTP::Parser->new( type => 'server' );
     POE::Component::Server::TCP->new(
         Port               => $self->{port},
@@ -85,6 +86,11 @@ sub run {
             }
         },
     );
+}
+
+sub run {
+    my ($self, $app) = @_;
+    $self->register_service($app);
     POE::Kernel->run;
 }
 
