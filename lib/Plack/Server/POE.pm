@@ -36,7 +36,14 @@ sub register_service {
             my ($kernel, $heap, $req) = @_[KERNEL, HEAP, ARG0];
             my $client = $heap->{client};
 
-            my $protocol = $req->protocol || 'HTTP/0.9';
+            unless ($req->isa('HTTP::Request')) {
+                $client->put($req->as_string);
+                $poe_kernel->yield('shutdown');
+                return;
+            }
+
+            my $version  = $req->header('X-HTTP-Version') || '0.9';
+            my $protocol = "HTTP/$version";
 
             my $env = req_to_psgi($req,
                 SERVER_NAME         => $self->{host},
@@ -46,10 +53,10 @@ sub register_service {
                 'psgi.runonce'      => Plack::Util::FALSE,
             );
 
-            my $connection = $req->header('Connection');
-            my $v09 = $protocol eq 'HTTP/0.9';
-            my $v10 = $protocol eq 'HTTP/1.0';
-            my $v11 = $protocol eq 'HTTP/1.1';
+            my $connection = $req->header('Connection') || '';
+            my $v09 = $version eq '0.9';
+            my $v10 = $version eq '1.0';
+            my $v11 = $version eq '1.1';
 
             my $keep_alive = !$v09 && (
                 ($v10 && $connection eq 'Keep-Alive') 
