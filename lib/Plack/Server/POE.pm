@@ -2,6 +2,8 @@ package Plack::Server::POE;
 
 require v5.8.8;
 
+our $VERSION = '0.1';
+
 use warnings;
 use strict;
 
