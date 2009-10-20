@@ -56,23 +56,27 @@ sub register_service {
             );
 
             my $connection = $req->header('Connection') || '';
-            my $v09 = $version eq '0.9';
-            my $v10 = $version eq '1.0';
-            my $v11 = $version eq '1.1';
-
-            my $keep_alive = !$v09 && (
-                ($v10 && $connection eq 'Keep-Alive') 
-                || ($v11 && $connection ne 'close')
-            );
+            my $keep_alive = $version eq '1.1' && $connection ne 'close';
 
             my $write = sub { $client->put($_[0]) };
             my $close = sub { 
                 $poe_kernel->yield('shutdown') unless $keep_alive;
             };
-            my $write_body = sub { Plack::Util::foreach($_[0], $write) };
+
+            my $write_chunked = sub {
+                my $chunk = shift;
+                my $len = sprintf "%X", do { use bytes; length($chunk) };
+                $write->("$len\r\n$chunk\r\n");
+            };
+
+            my $close_chunked = sub {
+                $write->("0\r\n\r\n");
+                $close->();
+            };
 
             my $start_response = sub {
-                my ($code, $headers) = @_;
+                my ($code, $headers, $body) = @{+shift};
+                my ($explicit_length, $chunked);
                 my $message = status_message($code);
                 $write->("$protocol $code $message\r\n");
 
@@ -82,39 +86,46 @@ sub register_service {
                     if ($k eq 'Connection' && $v eq 'close') {
                         $keep_alive = 0;
                     }
+                    elsif ($k eq 'Content-Length') {
+                        $explicit_length = 1;
+                    }
                     $write->("$k: $v\r\n");
                 }
 
-                if ($keep_alive && $v10) {
-                    $write->("Connection: Keep-Alive\n");
+                my $no_body_allowed = ($req->method =~ /^head$/i)
+                    || ($code < 200)
+                    || ($code == 204)
+                    || ($code == 304);
+
+                if ($no_body_allowed) {
+                    $write->("\r\n");
+                    return;
                 }
 
+                $chunked = ($keep_alive && !$explicit_length);
+                $write->("Transfer-Encoding: chunked\r\n") if $chunked;
+
                 $write->("\r\n");
+
+                my $w = $chunked ? $write_chunked : $write;
+                my $c = $chunked ? $close_chunked : $close;
+
+                if ($body) {
+                    Plack::Util::foreach($body, $w);
+                    $c->();
+                    return;
+                }
+
+                return Plack::Util::inline_object(write => $w, close => $c);
             };
 
             my $response = Plack::Util::run_app($app, $env);
 
             if (ref $response eq 'CODE') {
-                $response->(sub {
-                    my ($status, $headers, $body) = @{+shift};
-                    $start_response->($status, $headers);
-                    if ($body) {
-                        $write_body->($body);
-                        $close->();
-                    }
-                    else {
-                        return Plack::Util::inline_object(
-                            write => $write,
-                            close => $close,
-                        );
-                    }
-                });
+                $response->($start_response);
             }
             else {
-                my ($status, $headers, $body) = @$response;
-                $start_response->($status, $headers);
-                $write_body->($body);
-                $close->();
+                $start_response->($response);
             }
         },
     );
