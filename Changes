@@ -1,2 +1,4 @@
 0.01     Thu Oct 15 23:09:18 2009
     - original version
+0.02     Tue Oct 20 18:00:31 2009
+    - fixed some problems with chunked, content-length, and keep-alive
