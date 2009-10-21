@@ -155,17 +155,17 @@ sub on_client_input {
             return;
         }
 
-        return Plack::Util::inline_object(
+        my $writer = Plack::Util::inline_object(
             write   => $w,
             close   => $c,
             poll_cb => sub {
                 my $get = shift;
                 ($heap->{client_flush} = sub {
-                    my $chunk = $get->();
-                    $w->($chunk) if defined $chunk;
+                    $get->($writer);
                 })->();
             },
         );
+        return $writer;
     };
 
     my $response = Plack::Util::run_app($self->{app}, $env);
