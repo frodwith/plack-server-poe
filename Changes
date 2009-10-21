@@ -2,3 +2,5 @@
     - original version
 0.02     Tue Oct 20 18:00:31 2009
     - fixed some problems with chunked, content-length, and keep-alive
+0.03     Wed Oct 21 01:14:30 2009
+    - Streaming from filehandles, poll_cb
