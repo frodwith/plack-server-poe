@@ -155,7 +155,7 @@ sub on_client_input {
             return;
         }
 
-        my $writer = Plack::Util::inline_object(
+        my $writer; $writer = Plack::Util::inline_object(
             write   => $w,
             close   => $c,
             poll_cb => sub {
