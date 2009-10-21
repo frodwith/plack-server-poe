@@ -4,3 +4,5 @@
     - fixed some problems with chunked, content-length, and keep-alive
 0.03     Wed Oct 21 01:14:30 2009
     - Streaming from filehandles, poll_cb
+0.04     Wed Oct 21 02:13:04 2009
+    - poll_cb bug fixed (misunderstood the unreleased spec), tests!
