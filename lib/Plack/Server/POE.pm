@@ -157,7 +157,7 @@ sub on_client_input {
 
         my $writer; $writer = Plack::Util::inline_object(
             write   => $w,
-            close   => $c,
+            close   => sub { $c->(@_); undef $writer },
             poll_cb => sub {
                 my $get = shift;
                 ($heap->{client_flush} = sub {
