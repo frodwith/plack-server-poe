@@ -6,3 +6,5 @@
     - Streaming from filehandles, poll_cb
 0.04     Wed Oct 21 02:13:04 2009
     - poll_cb bug fixed (misunderstood the unreleased spec), tests!
+0.05     Mon Feb 15 17:17:30 2010
+    - renamed to POE::Component::Server::PSGI
