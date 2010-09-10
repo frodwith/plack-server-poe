@@ -8,3 +8,5 @@
     - poll_cb bug fixed (misunderstood the unreleased spec), tests!
 0.05     Mon Feb 15 17:17:30 2010
     - renamed to POE::Component::Server::PSGI
+0.06
+    - Now just a simple consumer of POEx::Role::PSGIServer (thanks nperez!)
